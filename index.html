@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Advanced Face and Object Recognition HUD system powered by Kathirvel, featuring real-time biometric analysis and neural network detections." />
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <title>KATHIRVEL AI - Vision HUD Core</title>
+  </head>
+  <body>
+    <div id="app" class="cyber-app-container">
+      
+      <!-- HEADER -->
+      <header class="cyber-header">
+        <div class="header-logo-container">
+          <div class="logo-glow-ring"></div>
+          <span class="logo-text">K-VISION <span class="logo-sub">HUD v2.0</span></span>
+        </div>
+        <div class="header-system-status">
+          <div class="status-indicator online">
+            <span class="indicator-dot"></span>
+            <span class="indicator-text" id="ai-engine-status">AI CORE: OFFLINE</span>
+          </div>
+          <div class="status-indicator online hidden-sm">
+            <span class="indicator-dot"></span>
+            <span class="indicator-text" id="webgl-status">WEBGL: READY</span>
+          </div>
+          <div class="current-time-hud" id="hud-time">15:12:00</div>
+        </div>
+      </header>
+
+      <!-- MAIN CONTAINER -->
+      <main class="cyber-main-layout">
+        
+        <!-- LEFT COLUMN: WEBCAM SCREEN & SCANNER HUD -->
+        <section class="hud-screen-column">
+          <div class="hud-frame-container">
+            <!-- Corner Brackets -->
+            <div class="hud-bracket top-left"></div>
+            <div class="hud-bracket top-right"></div>
+            <div class="hud-bracket bottom-left"></div>
+            <div class="hud-bracket bottom-right"></div>
+            
+            <!-- HUD grid & scanning animation layers -->
+            <div class="hud-overlay-grid"></div>
+            <div class="hud-overlay-scanline"></div>
+            <div class="hud-laser-line"></div>
+            
+            <!-- Video & Drawing Canvas -->
+            <div class="video-canvas-wrapper">
+              <video id="webcam-video" autoplay playsinline muted></video>
+              <canvas id="detection-canvas"></canvas>
+            </div>
+
+            <!-- Loader HUD screen -->
+            <div class="hud-loader" id="hud-loader-screen">
+              <div class="cyber-loader-spinner">
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring inner"></div>
+                <div class="logo-center">K</div>
+              </div>
+              <p class="loader-status-text" id="loader-status-text">INITIALIZING QUANTUM NETWORKS...</p>
+              <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="loader-progress-bar">0%</div>
+              </div>
+            </div>
+
+            <!-- Camera Permission / Error Screen -->
+            <div class="hud-error-screen hidden" id="hud-error-screen">
+              <svg class="error-icon" viewBox="0 0 24 24" width="48" height="48">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="currentColor"/>
+              </svg>
+              <h3>WEBCAM INTERFACE ERROR</h3>
+              <p id="error-message-text">Failed to gain access to media device. Ensure camera permissions are granted.</p>
+              <button class="cyber-btn" id="retry-camera-btn">RE-INITIALIZE INTERFACE</button>
+            </div>
+
+            <!-- Live HUD Stats Badges Overlaid on Video -->
+            <div class="video-overlay-badges">
+              <div class="badge-item">
+                <span class="badge-label">FPS</span>
+                <span class="badge-value" id="overlay-fps">00</span>
+              </div>
+              <div class="badge-item">
+                <span class="badge-label">LATENCY</span>
+                <span class="badge-value" id="overlay-latency">0 ms</span>
+              </div>
+              <div class="badge-item hidden-sm">
+                <span class="badge-label">RESOLUTION</span>
+                <span class="badge-value" id="overlay-resolution">0x0</span>
+              </div>
+            </div>
+
+            <!-- Active Target HUD Display -->
+            <div class="hud-active-target-card" id="hud-active-target">
+              <span class="target-title">SYSTEM TARGET DETECTED</span>
+              <span class="target-name" id="active-target-name">SCANNING FIELD...</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT COLUMN: ANALYTICS & CONTROLS -->
+        <section class="dashboard-controls-column">
+          
+          <!-- ANALYTICS PANEL -->
+          <div class="cyber-panel glass-panel" id="analytics-panel">
+            <h2 class="panel-title"><span class="title-glow">LIVE DIAGNOSTICS</span></h2>
+            
+            <div class="stats-grid">
+              <div class="stat-card">
+                <span class="stat-label">TOTAL SCANNED</span>
+                <div class="stat-value" id="stat-total-scanned">000</div>
+                <div class="stat-trend" style="color: var(--accent-person);">LIVE ANALYSIS</div>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">ACTIVE SCANS</span>
+                <div class="stat-value" id="stat-active-scans">0</div>
+                <div class="stat-trend" id="stat-breakdown">H:0 A:0 O:0</div>
+              </div>
+            </div>
+
+            <!-- Active Target Diagnostics Card -->
+            <div class="current-target-slot" id="diagnostics-target-card">
+              <span class="slot-label">IDENTIFIED SYSTEM TARGET</span>
+              <div class="slot-value" id="diagnostics-active-target">SCANNING SYSTEM...</div>
+            </div>
+
+            <!-- Detections Breakdown list -->
+            <div class="class-breakdown-list">
+              <div class="breakdown-item border-person">
+                <div class="breakdown-label">
+                  <span class="category-indicator bg-person"></span>
+                  Humans (Person)
+                </div>
+                <div class="breakdown-count" id="count-human">0</div>
+              </div>
+              <div class="breakdown-item border-animal">
+                <div class="breakdown-label">
+                  <span class="category-indicator bg-animal"></span>
+                  Animals / Birds
+                </div>
+                <div class="breakdown-count" id="count-animal">0</div>
+              </div>
+              <div class="breakdown-item border-object">
+                <div class="breakdown-label">
+                  <span class="category-indicator bg-object"></span>
+                  Objects / Props
+                </div>
+                <div class="breakdown-count" id="count-object">0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SYSTEM CONTROLS PANEL -->
+          <div class="cyber-panel glass-panel" id="controls-panel">
+            <h2 class="panel-title"><span class="title-glow">CONTROL MODULES</span></h2>
+            
+            <div class="control-group">
+              <label for="camera-select" class="control-label">VIDEO SOURCE INPUT</label>
+              <select id="camera-select" class="cyber-select">
+                <option value="">LOADING DEVICES...</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">NEURAL FILTERS</label>
+              <div class="checkbox-row">
+                <label class="cyber-checkbox active-person">
+                  <input type="checkbox" id="filter-human" checked />
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">HUMANS</span>
+                </label>
+                <label class="cyber-checkbox active-animal">
+                  <input type="checkbox" id="filter-animal" checked />
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">ANIMALS</span>
+                </label>
+                <label class="cyber-checkbox active-object">
+                  <input type="checkbox" id="filter-object" checked />
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">OBJECTS</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="slider-header">
+                <label for="confidence-threshold" class="control-label">CONFIDENCE THRESHOLD</label>
+                <span class="slider-val" id="confidence-threshold-val">50%</span>
+              </div>
+              <input type="range" id="confidence-threshold" min="20" max="95" value="50" class="cyber-slider" />
+            </div>
+
+            <div class="control-group border-top pt-3">
+              <div class="checkbox-row justify-between">
+                <label class="cyber-checkbox active-cyan">
+                  <input type="checkbox" id="toggle-voice" checked />
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-text">VOICE SYNTHESIS DIRECT</span>
+                </label>
+              </div>
+              
+              <div class="voice-settings-sub" id="voice-settings-container">
+                <div class="voice-row">
+                  <div class="control-subgroup">
+                    <label for="voice-select" class="control-label-sm">VOICE PROFILE</label>
+                    <select id="voice-select" class="cyber-select-sm">
+                      <option value="">DEFAULT SYSTEM</option>
+                    </select>
+                  </div>
+                  <div class="control-subgroup select-rate">
+                    <div class="slider-header">
+                      <label for="voice-rate" class="control-label-sm">SPEED</label>
+                      <span class="slider-val-sm" id="voice-rate-val">1.0x</span>
+                    </div>
+                    <input type="range" id="voice-rate" min="5" max="20" value="10" class="cyber-slider-sm" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TERMINAL EVENT LOG PANEL -->
+          <div class="cyber-panel glass-panel flex-grow" id="terminal-panel">
+            <div class="panel-header-row">
+              <h2 class="panel-title"><span class="title-glow">LOGS & EVENT SEQUENCE</span></h2>
+              <button class="cyber-btn-outline-sm" id="clear-logs-btn">CLEAR LOGS</button>
+            </div>
+            <div class="terminal-log-container" id="terminal-log">
+              <div class="log-line text-cyan">[15:12:00] SYSTEM: Initializing core systems...</div>
+            </div>
+          </div>
+
+          <!-- QUICK ACTIONS & SNAPSHOT GALLERY -->
+          <div class="cyber-panel glass-panel" id="gallery-panel">
+            <div class="panel-header-row">
+              <h2 class="panel-title"><span class="title-glow">SNAPSHOT LOGS</span></h2>
+              <button class="cyber-btn-primary" id="capture-snapshot-btn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <circle cx="12" cy="12" r="3.2"/>
+                  <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                </svg>
+                CAPTURE FRAME
+              </button>
+            </div>
+            
+            <div class="gallery-scroll-container" id="snapshot-gallery">
+              <p class="empty-gallery-msg" id="empty-gallery-msg">NO CAPTURES REGISTERED</p>
+            </div>
+          </div>
+
+        </section>
+      </main>
+
+      <!-- FOOTER GLOWING BRANDING -->
+      <footer class="cyber-footer">
+        <div class="footer-divider"></div>
+        <div class="footer-branding">
+          <span class="powered-by">POWERED BY <span class="developer-name">KATHIRVEL</span></span>
+          <span class="system-license">QUANTUM AI SCANNER CORE V2.0 // DEEP LEARNING BIO-PROP MODULE</span>
+        </div>
+      </footer>
+      
+    </div>
+    
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
