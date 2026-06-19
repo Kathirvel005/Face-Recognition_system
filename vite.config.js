@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  base: '/Face-Recognition_system/',
   server: {
     port: 3000,
     open: true,
