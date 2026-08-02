@@ -40,6 +40,16 @@
         
         <!-- LEFT COLUMN: WEBCAM SCREEN & SCANNER HUD -->
         <section class="hud-screen-column">
+          <!-- MODE SELECTOR TABS -->
+          <div class="hud-mode-tabs">
+            <button class="tab-btn active" id="tab-webcam">
+              <span class="tab-dot"></span>LIVE WEBCAM
+            </button>
+            <button class="tab-btn" id="tab-image">
+              <span class="tab-dot"></span>STATIC IMAGE SCAN
+            </button>
+          </div>
+
           <div class="hud-frame-container">
             <!-- Corner Brackets -->
             <div class="hud-bracket top-left"></div>
@@ -55,7 +65,18 @@
             <!-- Video & Drawing Canvas -->
             <div class="video-canvas-wrapper">
               <video id="webcam-video" autoplay playsinline muted></video>
+              <img id="uploaded-image-preview" class="hidden" />
               <canvas id="detection-canvas"></canvas>
+              
+              <!-- Drag and drop zone for image upload -->
+              <div id="image-upload-dropzone" class="image-dropzone hidden">
+                <svg class="dropzone-icon" viewBox="0 0 24 24" width="48" height="48" fill="currentColor">
+                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                </svg>
+                <span class="dropzone-text">DRAG & DROP IMAGE OR CLICK TO SCAN</span>
+                <input type="file" id="image-file-input" accept="image/*" class="hidden" />
+                <button class="cyber-btn-outline-sm mt-3" id="browse-files-btn">BROWSE LOCAL FILES</button>
+              </div>
             </div>
 
             <!-- Loader HUD screen -->
@@ -161,10 +182,18 @@
           <div class="cyber-panel glass-panel" id="controls-panel">
             <h2 class="panel-title"><span class="title-glow">CONTROL MODULES</span></h2>
             
-            <div class="control-group">
+            <div class="control-group" id="video-source-group">
               <label for="camera-select" class="control-label">VIDEO SOURCE INPUT</label>
               <select id="camera-select" class="cyber-select">
                 <option value="">LOADING DEVICES...</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label for="detector-select" class="control-label">FACE DETECTOR MODE</label>
+              <select id="detector-select" class="cyber-select">
+                <option value="tiny">FAST SCANNING (TINY FACE DETECTOR)</option>
+                <option value="ssd">ACCURATE BIOMETRICS (SSD MOBILENET V1)</option>
               </select>
             </div>
 
@@ -223,6 +252,26 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- FACE REGISTRATION (ENROLLMENT) PANEL -->
+          <div class="cyber-panel glass-panel hidden" id="face-registry-panel">
+            <h2 class="panel-title"><span class="title-glow">BIOMETRIC ENROLLMENT</span></h2>
+            <div class="registry-form">
+              <p class="registry-tip">Active target detected. Enter label name to save face mesh signature.</p>
+              <div class="input-row">
+                <input type="text" id="register-face-name" placeholder="ENTER TARGET NAME..." class="cyber-input" />
+                <button class="cyber-btn" id="register-face-btn">ENROLL PROFILE</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- AUTHORIZED DATABASE PANEL -->
+          <div class="cyber-panel glass-panel" id="authorized-db-panel">
+            <h2 class="panel-title"><span class="title-glow">AUTHORIZED PROFILE DATABASE</span></h2>
+            <div class="db-scroll-container" id="authorized-db-list">
+              <p class="empty-db-msg" id="empty-db-msg">NO PROFILES ENROLLED</p>
             </div>
           </div>
 

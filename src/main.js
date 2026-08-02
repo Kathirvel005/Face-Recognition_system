@@ -287,8 +287,8 @@ async function initializeAICore() {
   try {
     // 1. Ready TensorFlow
     loaderStatus.textContent = "INITIALIZING TENSORFLOW CORE...";
-    loaderProgress.style.width = "15%";
-    loaderProgress.textContent = "15%";
+    loaderProgress.style.width = "10%";
+    loaderProgress.textContent = "10%";
     await tf.ready();
     
     // Use WebGL backend
@@ -299,27 +299,39 @@ async function initializeAICore() {
     
     // 2. Load COCO SSD
     loaderStatus.textContent = "LOADING NEURAL OBJECT DETECTOR (COCO-SSD)...";
-    loaderProgress.style.width = "40%";
-    loaderProgress.textContent = "40%";
+    loaderProgress.style.width = "25%";
+    loaderProgress.textContent = "25%";
     cocoModel = await cocoSsd.load();
     logToTerminal("COCO-SSD neural network loaded.", "cyan");
     
-    // 3. Load Face-API Models (Tiny Face Detector, Landmarks, Expressions, Age/Gender)
-    loaderStatus.textContent = "LOADING BIOMETRIC DETECTOR (FACE-API)...";
-    loaderProgress.style.width = "65%";
-    loaderProgress.textContent = "65%";
-    await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+    // 3. Load Face-API Models
+    const modelPath = import.meta.env.BASE_URL + 'models';
+    
+    loaderStatus.textContent = "LOADING LIGHTWEIGHT BIOMETRICS (TINY DETECTOR)...";
+    loaderProgress.style.width = "40%";
+    loaderProgress.textContent = "40%";
+    await faceapi.nets.tinyFaceDetector.loadFromUri(modelPath);
+    
+    loaderStatus.textContent = "LOADING ACCURATE BIOMETRICS (SSD MOBILENET)...";
+    loaderProgress.style.width = "55%";
+    loaderProgress.textContent = "55%";
+    await faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath);
     
     loaderStatus.textContent = "LOADING FACE MESH NETWORK...";
-    loaderProgress.style.width = "80%";
-    loaderProgress.textContent = "80%";
-    await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+    loaderProgress.style.width = "70%";
+    loaderProgress.textContent = "70%";
+    await faceapi.nets.faceLandmark68Net.loadFromUri(modelPath);
     
-    loaderStatus.textContent = "LOADING FACIAL EXPRESSION RECOGNITION...";
-    loaderProgress.style.width = "90%";
-    loaderProgress.textContent = "90%";
-    await faceapi.nets.faceExpressionNet.loadFromUri('/models');
-    await faceapi.nets.ageGenderNet.loadFromUri('/models');
+    loaderStatus.textContent = "LOADING BIOMETRIC CLASSIFIERS (AGE, GENDER, EMOTIONS)...";
+    loaderProgress.style.width = "85%";
+    loaderProgress.textContent = "85%";
+    await faceapi.nets.faceExpressionNet.loadFromUri(modelPath);
+    await faceapi.nets.ageGenderNet.loadFromUri(modelPath);
+    
+    loaderStatus.textContent = "LOADING DEEP IDENTITY RECOGNITION CORE...";
+    loaderProgress.style.width = "95%";
+    loaderProgress.textContent = "95%";
+    await faceapi.nets.faceRecognitionNet.loadFromUri(modelPath);
     
     loaderProgress.style.width = "100%";
     loaderProgress.textContent = "100%";
@@ -356,12 +368,17 @@ function drawFaceMesh(landmarks) {
   
   const positions = landmarks.positions;
   
+  // Helper to translate x coordinate if webcam is mirrored
+  function getDrawX(ptX) {
+    return isWebcamMode ? (canvasEl.width - ptX) : ptX;
+  }
+  
   // Helper to connect points in path
   function drawPath(indices, close = false) {
     ctx.beginPath();
-    ctx.moveTo(positions[indices[0]].x, positions[indices[0]].y);
+    ctx.moveTo(getDrawX(positions[indices[0]].x), positions[indices[0]].y);
     for (let i = 1; i < indices.length; i++) {
-      ctx.lineTo(positions[indices[i]].x, positions[indices[i]].y);
+      ctx.lineTo(getDrawX(positions[indices[i]].x), positions[indices[i]].y);
     }
     if (close) ctx.closePath();
     ctx.stroke();
@@ -397,13 +414,15 @@ function drawFaceMesh(landmarks) {
   // Draw landmark points
   positions.forEach(point => {
     ctx.beginPath();
-    ctx.arc(point.x, point.y, 1.5, 0, 2 * Math.PI);
+    ctx.arc(getDrawX(point.x), point.y, 1.5, 0, 2 * Math.PI);
     ctx.fill();
   });
 }
 
 // --- HUD Canvas Drawing Utilities ---
 function drawBoundingBoxCorners(x, y, width, height, color, label, score) {
+  const drawX = isWebcamMode ? (canvasEl.width - x - width) : x;
+  
   // Draw glow box corners
   ctx.strokeStyle = color;
   ctx.lineWidth = 2.5;
@@ -414,13 +433,13 @@ function drawBoundingBoxCorners(x, y, width, height, color, label, score) {
   
   ctx.beginPath();
   // Top-left corner
-  ctx.moveTo(x + cornerSize, y); ctx.lineTo(x, y); ctx.lineTo(x, y + cornerSize);
+  ctx.moveTo(drawX + cornerSize, y); ctx.lineTo(drawX, y); ctx.lineTo(drawX, y + cornerSize);
   // Top-right corner
-  ctx.moveTo(x + width - cornerSize, y); ctx.lineTo(x + width, y); ctx.lineTo(x + width, y + cornerSize);
+  ctx.moveTo(drawX + width - cornerSize, y); ctx.lineTo(drawX + width, y); ctx.lineTo(drawX + width, y + cornerSize);
   // Bottom-left corner
-  ctx.moveTo(x + cornerSize, y + height); ctx.lineTo(x, y + height); ctx.lineTo(x, y + height - cornerSize);
+  ctx.moveTo(drawX + cornerSize, y + height); ctx.lineTo(drawX, y + height); ctx.lineTo(drawX, y + height - cornerSize);
   // Bottom-right corner
-  ctx.moveTo(x + width - cornerSize, y + height); ctx.lineTo(x + width, y + height); ctx.lineTo(x + width, y + height - cornerSize);
+  ctx.moveTo(drawX + width - cornerSize, y + height); ctx.lineTo(drawX + width, y + height); ctx.lineTo(drawX + width, y + height - cornerSize);
   ctx.stroke();
   
   // Draw subtle dashed lines between corners
@@ -428,12 +447,12 @@ function drawBoundingBoxCorners(x, y, width, height, color, label, score) {
   ctx.strokeStyle = color + '2b'; // transparent hex
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 4]);
-  ctx.strokeRect(x, y, width, height);
+  ctx.strokeRect(drawX, y, width, height);
   ctx.setLineDash([]); // Reset dash
   
   // Subtle glow container fill
   ctx.fillStyle = color + '08';
-  ctx.fillRect(x, y, width, height);
+  ctx.fillRect(drawX, y, width, height);
   
   // Label Tag Background
   ctx.fillStyle = color;
@@ -444,52 +463,478 @@ function drawBoundingBoxCorners(x, y, width, height, color, label, score) {
   
   // Custom tech polygon tag
   ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + textWidth + 16, y);
-  ctx.lineTo(x + textWidth + 8, y - 18);
-  ctx.lineTo(x, y - 18);
+  ctx.moveTo(drawX, y);
+  ctx.lineTo(drawX + textWidth + 16, y);
+  ctx.lineTo(drawX + textWidth + 8, y - 18);
+  ctx.lineTo(drawX, y - 18);
   ctx.closePath();
   ctx.fill();
   
   // Label Text
   ctx.fillStyle = '#000000';
-  ctx.fillText(textVal, x + 6, y - 5);
+  ctx.fillText(textVal, drawX + 6, y - 5);
 }
 
 // --- Main Processing Frame Loop ---
+// --- Mode & Profile State Variables ---
+let isWebcamMode = true;
+let selectedFaceDetector = 'tiny'; // 'tiny' or 'ssd'
+let enrolledProfiles = []; // Array of LabeledFaceDescriptors
+let faceMatcher = null;
+let currentDetectionFaces = []; // Holds current face results to register from
+
+// Load registered face profiles
+function loadEnrolledProfiles() {
+  try {
+    const data = localStorage.getItem('kvision_enrolled_profiles');
+    if (data) {
+      const parsed = JSON.parse(data);
+      enrolledProfiles = parsed.map(profile => {
+        const float32Descriptors = profile.descriptors.map(d => new Float32Array(d));
+        return new faceapi.LabeledFaceDescriptors(profile.label, float32Descriptors);
+      });
+      updateFaceMatcher();
+      renderEnrolledDB();
+      logToTerminal(`Loaded ${enrolledProfiles.length} face profile(s) from database.`, "cyan");
+    }
+  } catch (err) {
+    console.warn("Failed to load enrolled profiles:", err);
+  }
+}
+
+// Save face profiles to localStorage
+function saveEnrolledProfiles() {
+  try {
+    const serializable = enrolledProfiles.map(p => ({
+      label: p.label,
+      descriptors: p.descriptors.map(d => Array.from(d))
+    }));
+    localStorage.setItem('kvision_enrolled_profiles', JSON.stringify(serializable));
+  } catch (err) {
+    console.warn("Failed to save enrolled profiles:", err);
+  }
+}
+
+// Update the faceapi FaceMatcher
+function updateFaceMatcher() {
+  if (enrolledProfiles.length > 0) {
+    faceMatcher = new faceapi.FaceMatcher(enrolledProfiles, 0.6);
+  } else {
+    faceMatcher = null;
+  }
+}
+
+// Update Face Enrollment UI database list
+function renderEnrolledDB() {
+  const dbList = document.getElementById('authorized-db-list');
+  const emptyMsg = document.getElementById('empty-db-msg');
+  
+  dbList.innerHTML = '';
+  
+  if (enrolledProfiles.length === 0) {
+    dbList.appendChild(emptyMsg);
+    emptyMsg.style.display = 'block';
+    return;
+  }
+  
+  emptyMsg.style.display = 'none';
+  
+  enrolledProfiles.forEach(profile => {
+    const item = document.createElement('div');
+    item.className = 'db-item';
+    item.innerHTML = `
+      <div>
+        <span class="db-item-name">${profile.label}</span>
+        <span class="db-item-count">(${profile.descriptors.length} signature(s))</span>
+      </div>
+      <button class="db-item-delete" title="Delete Profile" data-name="${profile.label}">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+        </svg>
+      </button>
+    `;
+    
+    item.querySelector('.db-item-delete').addEventListener('click', (e) => {
+      const label = e.currentTarget.getAttribute('data-name');
+      enrolledProfiles = enrolledProfiles.filter(p => p.label !== label);
+      saveEnrolledProfiles();
+      updateFaceMatcher();
+      renderEnrolledDB();
+      logToTerminal(`DELETED BIOMETRIC PROFILE: ${label}`, "muted");
+      playSynthBeep(300, 0.1, 'sawtooth');
+    });
+    
+    dbList.appendChild(item);
+  });
+}
+
+// Register current detected face with a custom name
+function enrollCurrentFace() {
+  const nameInput = document.getElementById('register-face-name');
+  const name = nameInput.value.trim().toUpperCase();
+  
+  if (!name) {
+    logToTerminal("ENROLLMENT ERROR: Please enter a target label name.", "object");
+    playSynthBeep(200, 0.2, 'sawtooth');
+    return;
+  }
+  
+  if (currentDetectionFaces.length === 0) {
+    logToTerminal("ENROLLMENT ERROR: No active face detected in frame.", "object");
+    playSynthBeep(200, 0.2, 'sawtooth');
+    return;
+  }
+  
+  // Grab descriptor of the first detected face
+  const faceToRegister = currentDetectionFaces[0];
+  const descriptor = faceToRegister.descriptor;
+  
+  const existingProfile = enrolledProfiles.find(p => p.label === name);
+  if (existingProfile) {
+    existingProfile.descriptors.push(descriptor);
+    logToTerminal(`BIOMETRIC UPDATED: Appended signature for ${name}.`, "cyan");
+  } else {
+    const newProfile = new faceapi.LabeledFaceDescriptors(name, [descriptor]);
+    enrolledProfiles.push(newProfile);
+    logToTerminal(`BIOMETRIC REGISTERED: Enrolled target "${name}".`, "cyan");
+  }
+  
+  nameInput.value = '';
+  saveEnrolledProfiles();
+  updateFaceMatcher();
+  renderEnrolledDB();
+  playSynthBeep(880, 0.15, 'sine');
+  
+  // Hide enrollment widget after registration
+  document.getElementById('face-registry-panel').classList.add('hidden');
+}
+
+// Show/Hide enrollment widget based on face detections
+function updateRegistryWidget() {
+  const registryPanel = document.getElementById('face-registry-panel');
+  if (settings.filters.human && currentDetectionFaces.length > 0) {
+    registryPanel.classList.remove('hidden');
+  } else {
+    registryPanel.classList.add('hidden');
+  }
+}
+
+// Common function to draw face and object detections
+function drawDetections(faceResults, cocoResults) {
+  const activeFilters = settings.filters;
+  
+  let frameHumans = 0;
+  let frameAnimals = 0;
+  let frameObjects = 0;
+  const currentFrameLabels = new Set();
+  
+  // 1. Draw COCO Detections
+  cocoResults.forEach(det => {
+    if (det.score < settings.confidenceThreshold) return;
+    
+    const { category, label, color } = parseDetectionClass(det.class);
+    
+    if (category === 'human') {
+      if (!activeFilters.human) return;
+      frameHumans++;
+      currentFrameLabels.add('Human');
+      
+      const [bx, by, bw, bh] = det.bbox;
+      drawBoundingBoxCorners(bx, by, bw, bh, color, 'Human', det.score);
+    } else if (category === 'animal') {
+      if (!activeFilters.animal) return;
+      frameAnimals++;
+      currentFrameLabels.add(label);
+      
+      const [bx, by, bw, bh] = det.bbox;
+      drawBoundingBoxCorners(bx, by, bw, bh, color, label, det.score);
+    } else if (category === 'object') {
+      if (!activeFilters.object) return;
+      frameObjects++;
+      currentFrameLabels.add(label);
+      
+      const [bx, by, bw, bh] = det.bbox;
+      drawBoundingBoxCorners(bx, by, bw, bh, color, label, det.score);
+    }
+  });
+  
+  // 2. Draw Face API Biometrics
+  if (activeFilters.human && faceResults && faceResults.length > 0) {
+    faceResults.forEach(face => {
+      const { x, y, width, height } = face.detection.box;
+      const gender = face.gender;
+      const age = Math.round(face.age);
+      
+      // Recognition lookup
+      let nameLabel = 'Person';
+      
+      if (faceMatcher && face.descriptor) {
+        const match = faceMatcher.findBestMatch(face.descriptor);
+        if (match && match.label !== 'unknown') {
+          const matchPercent = Math.round((1 - match.distance) * 100);
+          nameLabel = `${match.label} [${matchPercent}% MATCH]`;
+        }
+      }
+      
+      let expression = 'Neutral';
+      let maxVal = 0;
+      Object.entries(face.expressions).forEach(([exp, val]) => {
+        if (val > maxVal) {
+          maxVal = val;
+          expression = exp.charAt(0).toUpperCase() + exp.slice(1);
+        }
+      });
+      
+      const detailsLabel = `${gender.toUpperCase()}, ~${age}y [${expression}]`;
+      
+      // Green color for humans
+      const drawX = isWebcamMode ? (canvasEl.width - x - width) : x;
+      
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(drawX, y, width, height);
+      
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.04)';
+      ctx.fillRect(drawX, y, width, height);
+      
+      // Details tag
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.85)';
+      ctx.font = '9px Orbitron, sans-serif';
+      ctx.fillRect(drawX, y + height, width, 16);
+      
+      ctx.fillStyle = '#000';
+      ctx.fillText(detailsLabel, drawX + 4, y + height + 11);
+      
+      // Top identity tag
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 11px Orbitron, sans-serif';
+      const textWidth = ctx.measureText(nameLabel).width;
+      
+      ctx.beginPath();
+      ctx.moveTo(drawX, y);
+      ctx.lineTo(drawX + textWidth + 16, y);
+      ctx.lineTo(drawX + textWidth + 8, y - 18);
+      ctx.lineTo(drawX, y - 18);
+      ctx.closePath();
+      ctx.fill();
+      
+      ctx.fillStyle = '#000';
+      ctx.fillText(nameLabel, drawX + 6, y - 5);
+      
+      // Draw wireframe face mesh
+      drawFaceMesh(face.landmarks);
+      
+      // Count face detections as humans if COCO person isn't detected
+      if (cocoResults.filter(d => d.class === 'person').length === 0) {
+        frameHumans++;
+        currentFrameLabels.add('Human');
+      }
+    });
+  }
+  
+  // Update Live Stats
+  const activeScansTotal = frameHumans + frameAnimals + frameObjects;
+  statActiveScans.textContent = activeScansTotal;
+  statBreakdown.textContent = `H:${frameHumans} A:${frameAnimals} O:${frameObjects}`;
+  
+  countHuman.textContent = frameHumans;
+  countAnimal.textContent = frameAnimals;
+  countObject.textContent = frameObjects;
+  
+  if (isWebcamMode) {
+    currentFrameLabels.forEach(label => {
+      if (!lastDetectedLabels.has(label)) {
+        totalScannedCount++;
+        let logType = 'muted';
+        if (label === 'Human') {
+          logType = 'person';
+          logToTerminal(`TARGET LOCKED: Human detected. Analyzing biometrics...`, logType);
+          speakText("Human detected");
+          playSynthBeep(880, 0.08, 'sawtooth');
+        } else {
+          const isAnimal = ANIMAL_CLASSES.includes(label.toLowerCase());
+          logType = isAnimal ? 'animal' : 'object';
+          logToTerminal(`SCANNER REGISTERED: ${label} loaded in field.`, logType);
+          speakText(`${label} detected`);
+          playSynthBeep(650, 0.1, 'sine');
+        }
+      }
+    });
+    lastDetectedLabels = currentFrameLabels;
+  }
+  
+  // Find highest confidence target for slot display
+  let highestConfTarget = null;
+  
+  cocoResults.forEach(det => {
+    if (det.score < settings.confidenceThreshold) return;
+    const { category, label } = parseDetectionClass(det.class);
+    if (category === 'human' && !activeFilters.human) return;
+    if (category === 'animal' && !activeFilters.animal) return;
+    if (category === 'object' && !activeFilters.object) return;
+    
+    const targetLabel = category === 'human' ? 'Person' : label;
+    if (highestConfTarget === null || det.score > highestConfTarget.score) {
+      highestConfTarget = { label: targetLabel, category, score: det.score };
+    }
+  });
+  
+  if (activeFilters.human && faceResults && faceResults.length > 0) {
+    faceResults.forEach(face => {
+      let label = 'Person (Human)';
+      let score = face.detection.score;
+      if (faceMatcher && face.descriptor) {
+        const match = faceMatcher.findBestMatch(face.descriptor);
+        if (match && match.label !== 'unknown') {
+          label = match.label;
+          score = 1 - match.distance;
+        }
+      }
+      if (highestConfTarget === null || score > highestConfTarget.score) {
+        highestConfTarget = { label, category: 'human', score };
+      }
+    });
+  }
+  
+  if (highestConfTarget) {
+    const { label, category, score } = highestConfTarget;
+    const scoreText = ` (${Math.round(score * 100)}%)`;
+    const fullLabel = `${label.toUpperCase()}${scoreText}`;
+    
+    let color = '#00f2fe';
+    if (category === 'human') color = '#10b981';
+    else if (category === 'animal') color = '#f59e0b';
+    else if (category === 'object') color = '#d946ef';
+    
+    activeTargetName.textContent = fullLabel;
+    activeTargetName.style.color = color;
+    activeTargetName.style.textShadow = `0 0 8px ${color}99`;
+    activeTargetCard.style.borderBottomColor = color;
+    
+    diagnosticsTargetVal.textContent = fullLabel;
+    diagnosticsTargetVal.style.color = color;
+    diagnosticsTargetVal.style.textShadow = `0 0 6px ${color}66`;
+    diagnosticsTargetCard.style.borderLeftColor = color;
+  } else {
+    const activeScansText = activeScansTotal > 0 ? "SCANNING FIELD..." : "NO TARGETS DETECTED";
+    activeTargetName.textContent = activeScansText;
+    activeTargetName.style.color = '#00f2fe';
+    activeTargetName.style.textShadow = '0 0 8px rgba(0, 242, 254, 0.5)';
+    activeTargetCard.style.borderBottomColor = '#00f2fe';
+    
+    diagnosticsTargetVal.textContent = "SCANNING SYSTEM...";
+    diagnosticsTargetVal.style.color = '#00f2fe';
+    diagnosticsTargetVal.style.textShadow = '0 0 6px rgba(0, 242, 254, 0.4)';
+    diagnosticsTargetCard.style.borderLeftColor = '#00f2fe';
+  }
+}
+
+// Static image scanning handler
+async function runImageDetection() {
+  if (!modelsLoaded || isWebcamMode) return;
+  
+  const imgEl = document.getElementById('uploaded-image-preview');
+  if (!imgEl.src) return;
+  
+  isProcessing = true;
+  logToTerminal("Initiating static image analysis...", "cyan");
+  playSynthBeep(800, 0.1, 'sine');
+  
+  // Set canvas dimensions to match natural image size
+  canvasEl.width = imgEl.naturalWidth;
+  canvasEl.height = imgEl.naturalHeight;
+  
+  // Fit canvas CSS styles to the displayed dimensions
+  const displayWidth = imgEl.clientWidth;
+  const displayHeight = imgEl.clientHeight;
+  canvasEl.style.width = `${displayWidth}px`;
+  canvasEl.style.height = `${displayHeight}px`;
+  
+  document.getElementById('overlay-resolution').textContent = `${imgEl.naturalWidth}x${imgEl.naturalHeight}`;
+  
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+  
+  try {
+    const activeFilters = settings.filters;
+    const promises = [];
+    
+    if (activeFilters.human) {
+      let faceOptions;
+      if (selectedFaceDetector === 'tiny') {
+        faceOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+      } else {
+        faceOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+      }
+      promises.push(
+        faceapi.detectAllFaces(imgEl, faceOptions)
+          .withFaceLandmarks()
+          .withFaceExpressions()
+          .withAgeAndGender()
+          .withFaceDescriptors()
+      );
+    } else {
+      promises.push(Promise.resolve([]));
+    }
+    
+    if (activeFilters.animal || activeFilters.object || activeFilters.human) {
+      promises.push(cocoModel.detect(imgEl));
+    } else {
+      promises.push(Promise.resolve([]));
+    }
+    
+    const startTime = performance.now();
+    const [faceResults, cocoResults] = await Promise.all(promises);
+    const latency = Math.round(performance.now() - startTime);
+    document.getElementById('overlay-latency').textContent = `${latency} ms`;
+    
+    currentDetectionFaces = faceResults;
+    
+    drawDetections(faceResults, cocoResults);
+    updateRegistryWidget();
+    logToTerminal("Static image scan complete.", "cyan");
+    
+  } catch (err) {
+    console.error("Static image detection error:", err);
+    logToTerminal(`ANALYSIS ERROR: ${err.message}`, "object");
+  }
+  isProcessing = false;
+}
+
+// Real-time camera scan frame loop
 async function detectionFrameLoop() {
-  if (videoEl.paused || videoEl.ended || !modelsLoaded) {
+  if (videoEl.paused || videoEl.ended || !modelsLoaded || !isWebcamMode) {
     requestAnimationFrame(detectionFrameLoop);
     return;
   }
   
-  // FPS calculation
   const now = performance.now();
   frameCount++;
   const frameTime = now - lastFrameTime;
   lastFrameTime = now;
   
-  // Skip frames if current one is still running
   if (!isProcessing) {
     isProcessing = true;
     const startTime = performance.now();
     
-    // Clear canvas
     ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
     
     try {
       const activeFilters = settings.filters;
       const promises = [];
       
-      // Face detection & object detection
       if (activeFilters.human) {
-        // Face API Tiny Detector Options
-        const faceOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+        let faceOptions;
+        if (selectedFaceDetector === 'tiny') {
+          faceOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+        } else {
+          faceOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+        }
         promises.push(
           faceapi.detectAllFaces(videoEl, faceOptions)
             .withFaceLandmarks()
             .withFaceExpressions()
             .withAgeAndGender()
+            .withFaceDescriptors()
         );
       } else {
         promises.push(Promise.resolve([]));
@@ -506,193 +951,13 @@ async function detectionFrameLoop() {
       const latency = Math.round(performance.now() - startTime);
       document.getElementById('overlay-latency').textContent = `${latency} ms`;
       
-      // Counts for current frame
-      let frameHumans = 0;
-      let frameAnimals = 0;
-      let frameObjects = 0;
-      const currentFrameLabels = new Set();
+      currentDetectionFaces = faceResults;
       
-      // --- Draw COCO Detections ---
-      cocoResults.forEach(det => {
-        if (det.score < settings.confidenceThreshold) return;
-        
-        const { category, label, color } = parseDetectionClass(det.class);
-        
-        // Skip coco humans if face-api is active to prevent overlapping boxes, or draw them both
-        if (category === 'human') {
-          if (!activeFilters.human) return; // skip if human filter is off
-          frameHumans++;
-          currentFrameLabels.add('Human');
-          
-          // Draw Person bounding box (entire body)
-          const [bx, by, bw, bh] = det.bbox;
-          drawBoundingBoxCorners(bx, by, bw, bh, color, 'Human', det.score);
-        } else if (category === 'animal') {
-          if (!activeFilters.animal) return;
-          frameAnimals++;
-          currentFrameLabels.add(label);
-          
-          const [bx, by, bw, bh] = det.bbox;
-          drawBoundingBoxCorners(bx, by, bw, bh, color, label, det.score);
-        } else if (category === 'object') {
-          if (!activeFilters.object) return;
-          frameObjects++;
-          currentFrameLabels.add(label);
-          
-          const [bx, by, bw, bh] = det.bbox;
-          drawBoundingBoxCorners(bx, by, bw, bh, color, label, det.score);
-        }
-      });
-      
-      // --- Draw Face API Biometrics ---
-      if (activeFilters.human && faceResults.length > 0) {
-        faceResults.forEach(face => {
-          const { x, y, width, height } = face.detection.box;
-          const gender = face.gender;
-          const age = Math.round(face.age);
-          
-          // Find primary expression
-          let expression = 'Neutral';
-          let maxVal = 0;
-          Object.entries(face.expressions).forEach(([exp, val]) => {
-            if (val > maxVal) {
-              maxVal = val;
-              expression = exp.charAt(0).toUpperCase() + exp.slice(1);
-            }
-          });
-          
-          const label = `${gender.toUpperCase()}, ~${age}y [${expression}]`;
-          
-          // Draw Glowing Face box
-          ctx.strokeStyle = '#10b981';
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(x, y, width, height);
-          
-          // Draw details label underneath or above face box
-          ctx.fillStyle = 'rgba(16, 185, 129, 0.85)';
-          ctx.font = '9px Orbitron, sans-serif';
-          ctx.fillRect(x, y + height, width, 16);
-          
-          ctx.fillStyle = '#000';
-          ctx.fillText(label, x + 4, y + height + 11);
-          
-          // Draw advanced glowing Face wireframe mesh
-          drawFaceMesh(face.landmarks);
-          
-          // If coco person detection isn't running or didn't trigger, count face detection as a human scan
-          if (!settings.filters.human) return; 
-          
-          // If we haven't already counted coco person for this, increment
-          if (cocoResults.filter(d => d.class === 'person').length === 0) {
-            frameHumans++;
-            currentFrameLabels.add('Human');
-          }
-        });
-      }
-      
-      // --- Stats Board updates ---
-      const activeScansTotal = frameHumans + frameAnimals + frameObjects;
-      statActiveScans.textContent = activeScansTotal;
-      statBreakdown.textContent = `H:${frameHumans} A:${frameAnimals} O:${frameObjects}`;
-      
-      countHuman.textContent = frameHumans;
-      countAnimal.textContent = frameAnimals;
-      countObject.textContent = frameObjects;
-      
-      // --- Speech alert triggers & log sequence ---
-      currentFrameLabels.forEach(label => {
-        // If this label is new compared to last frame
-        if (!lastDetectedLabels.has(label)) {
-          totalScannedCount++;
-          
-          let logType = 'muted';
-          if (label === 'Human') {
-            logType = 'person';
-            logToTerminal(`TARGET LOCKED: Human detected. Analyzing biometrics...`, logType);
-            speakText("Human detected");
-            playSynthBeep(880, 0.08, 'sawtooth');
-          } else {
-            const isAnimal = ANIMAL_CLASSES.includes(label.toLowerCase());
-            logType = isAnimal ? 'animal' : 'object';
-            logToTerminal(`SCANNER REGISTERED: ${label} loaded in field.`, logType);
-            speakText(`${label} detected`);
-            playSynthBeep(650, 0.1, 'sine');
-          }
-        }
-      });
-      
-      lastDetectedLabels = currentFrameLabels;
-      
-      // --- Find highest confidence target for slot display ---
-      let highestConfTarget = null;
-      
-      cocoResults.forEach(det => {
-        if (det.score < settings.confidenceThreshold) return;
-        const { category, label } = parseDetectionClass(det.class);
-        
-        if (category === 'human' && !activeFilters.human) return;
-        if (category === 'animal' && !activeFilters.animal) return;
-        if (category === 'object' && !activeFilters.object) return;
-        
-        const targetLabel = category === 'human' ? 'Person' : label;
-        
-        if (highestConfTarget === null || det.score > highestConfTarget.score) {
-          highestConfTarget = {
-            label: targetLabel,
-            category,
-            score: det.score
-          };
-        }
-      });
-      
-      if (activeFilters.human && faceResults.length > 0) {
-        faceResults.forEach(face => {
-          if (highestConfTarget === null || face.detection.score > highestConfTarget.score) {
-            highestConfTarget = {
-              label: 'Person (Human)',
-              category: 'human',
-              score: face.detection.score
-            };
-          }
-        });
-      }
-      
-      // Update HUD and Diagnostics Slots
-      if (highestConfTarget) {
-        const { label, category, score } = highestConfTarget;
-        const scoreText = ` (${Math.round(score * 100)}%)`;
-        const fullLabel = `${label.toUpperCase()}${scoreText}`;
-        
-        let color = '#00f2fe';
-        if (category === 'human') color = '#10b981';
-        else if (category === 'animal') color = '#f59e0b';
-        else if (category === 'object') color = '#d946ef';
-        
-        activeTargetName.textContent = fullLabel;
-        activeTargetName.style.color = color;
-        activeTargetName.style.textShadow = `0 0 8px ${color}99`;
-        activeTargetCard.style.borderBottomColor = color;
-        
-        diagnosticsTargetVal.textContent = fullLabel;
-        diagnosticsTargetVal.style.color = color;
-        diagnosticsTargetVal.style.textShadow = `0 0 6px ${color}66`;
-        diagnosticsTargetCard.style.borderLeftColor = color;
-      } else {
-        const activeScansText = activeScansTotal > 0 ? "SCANNING FIELD..." : "NO TARGETS DETECTED";
-        
-        activeTargetName.textContent = activeScansText;
-        activeTargetName.style.color = '#00f2fe';
-        activeTargetName.style.textShadow = '0 0 8px rgba(0, 242, 254, 0.5)';
-        activeTargetCard.style.borderBottomColor = '#00f2fe';
-        
-        diagnosticsTargetVal.textContent = "SCANNING SYSTEM...";
-        diagnosticsTargetVal.style.color = '#00f2fe';
-        diagnosticsTargetVal.style.textShadow = '0 0 6px rgba(0, 242, 254, 0.4)';
-        diagnosticsTargetCard.style.borderLeftColor = '#00f2fe';
-      }
+      drawDetections(faceResults, cocoResults);
+      updateRegistryWidget();
       
     } catch (err) {
-      console.error("Frame detection loop crash: ", err);
+      console.error("Frame detection loop crash:", err);
     }
     
     isProcessing = false;
@@ -701,34 +966,28 @@ async function detectionFrameLoop() {
   requestAnimationFrame(detectionFrameLoop);
 }
 
-// --- Snapshot Capture System ---
+// Capture current frame snapshot
 function captureSnapshot() {
-  if (!activeStream || videoEl.paused) {
-    logToTerminal("CAPTURE FAILED: Camera feed is inactive.", "object");
+  const sourceEl = isWebcamMode ? videoEl : document.getElementById('uploaded-image-preview');
+  if (!sourceEl || (isWebcamMode && (!activeStream || videoEl.paused))) {
+    logToTerminal("CAPTURE FAILED: Source feed is inactive.", "object");
     return;
   }
   
-  // Play camera shutter sound
   playSynthBeep(1200, 0.05, 'sine');
   setTimeout(() => playSynthBeep(400, 0.15, 'sawtooth'), 50);
   
-  // Flash Screen animation
   const shutterFlash = document.createElement('div');
   shutterFlash.className = 'shutter-flash flash-animate';
   document.querySelector('.hud-frame-container').appendChild(shutterFlash);
   setTimeout(() => shutterFlash.remove(), 400);
   
-  // Capture Canvas merging
   const captureCanvas = document.createElement('canvas');
-  captureCanvas.width = videoEl.videoWidth;
-  captureCanvas.height = videoEl.videoHeight;
+  captureCanvas.width = isWebcamMode ? videoEl.videoWidth : sourceEl.naturalWidth;
+  captureCanvas.height = isWebcamMode ? videoEl.videoHeight : sourceEl.naturalHeight;
   const captureCtx = captureCanvas.getContext('2d');
   
-  // Draw the current video frame (normal orientation, no mirrors, so it looks like a clean photo)
-  // Wait, standard camera video is mirrored in the UI, but people usually expect captured photos to be unmirrored.
-  // The bounding boxes coordinates drawn to detection-canvas match the unmirrored video source.
-  // So if we draw the video unmirrored, and then draw detection-canvas (which is mirrored in CSS but unmirrored in coordinates), they align perfectly!
-  captureCtx.drawImage(videoEl, 0, 0, captureCanvas.width, captureCanvas.height);
+  captureCtx.drawImage(sourceEl, 0, 0, captureCanvas.width, captureCanvas.height);
   captureCtx.drawImage(canvasEl, 0, 0, captureCanvas.width, captureCanvas.height);
   
   const imgUrl = captureCanvas.toDataURL('image/jpeg');
@@ -741,7 +1000,7 @@ function captureSnapshot() {
     time: timestamp
   };
   
-  snapshots.unshift(snapshot); // Add to beginning of array
+  snapshots.unshift(snapshot);
   renderSnapshots();
   logToTerminal(`SNAPSHOT REGISTERED: ID #${snapshotId} logged to gallery.`, "cyan");
 }
@@ -749,7 +1008,6 @@ function captureSnapshot() {
 function renderSnapshots() {
   if (snapshots.length === 0) {
     emptyGalleryMsg.style.display = 'block';
-    // Remove thumbnail containers
     const thumbs = snapshotGallery.querySelectorAll('.gallery-thumb-wrapper');
     thumbs.forEach(t => t.remove());
     return;
@@ -757,7 +1015,6 @@ function renderSnapshots() {
   
   emptyGalleryMsg.style.display = 'none';
   
-  // Clear old thumbs
   const thumbs = snapshotGallery.querySelectorAll('.gallery-thumb-wrapper');
   thumbs.forEach(t => t.remove());
   
@@ -782,7 +1039,6 @@ function renderSnapshots() {
       </div>
     `;
     
-    // Bind delete action
     wrapper.querySelector('.delete').addEventListener('click', () => {
       snapshots = snapshots.filter(s => s.id !== snap.id);
       renderSnapshots();
@@ -794,30 +1050,153 @@ function renderSnapshots() {
   });
 }
 
-// --- Bind Control Input Handlers ---
+// Bind Control Inputs
 function bindControlInputs() {
-  // Device Selection Changes
-  cameraSelect.addEventListener('change', () => {
-    startWebcam();
+  const tabWebcam = document.getElementById('tab-webcam');
+  const tabImage = document.getElementById('tab-image');
+  const videoSourceGroup = document.getElementById('video-source-group');
+  const uploadDropzone = document.getElementById('image-upload-dropzone');
+  const imagePreview = document.getElementById('uploaded-image-preview');
+  
+  tabWebcam.addEventListener('click', async () => {
+    if (isWebcamMode) return;
+    isWebcamMode = true;
+    tabWebcam.classList.add('active');
+    tabImage.classList.remove('active');
+    
+    videoSourceGroup.classList.remove('hidden');
+    uploadDropzone.classList.add('hidden');
+    imagePreview.classList.add('hidden');
+    videoEl.classList.remove('hidden');
+    
+    canvasEl.style.width = '100%';
+    canvasEl.style.height = '100%';
+    
+    await startWebcam();
+    logToTerminal("LIVE WEBCAM MODE ACTIVE", "cyan");
   });
   
-  // Filter checkboxes
+  tabImage.addEventListener('click', () => {
+    if (!isWebcamMode) return;
+    isWebcamMode = false;
+    tabImage.classList.add('active');
+    tabWebcam.classList.remove('active');
+    
+    videoSourceGroup.classList.add('hidden');
+    videoEl.classList.add('hidden');
+    imagePreview.classList.remove('hidden');
+    
+    if (!imagePreview.src) {
+      uploadDropzone.classList.remove('hidden');
+    }
+    
+    if (activeStream) {
+      activeStream.getTracks().forEach(track => track.stop());
+      activeStream = null;
+    }
+    
+    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    currentDetectionFaces = [];
+    updateRegistryWidget();
+    logToTerminal("STATIC IMAGE SCAN MODE ACTIVE", "cyan");
+  });
+
+  const detectorSelect = document.getElementById('detector-select');
+  detectorSelect.addEventListener('change', async (e) => {
+    selectedFaceDetector = e.target.value;
+    logToTerminal(`Face detector model set to: ${selectedFaceDetector === 'tiny' ? 'TinyFaceDetector' : 'SsdMobilenetv1'}`, "cyan");
+    if (!isWebcamMode) {
+      await runImageDetection();
+    }
+  });
+
+  const fileInput = document.getElementById('image-file-input');
+  const browseBtn = document.getElementById('browse-files-btn');
+  
+  const handleImageFile = (file) => {
+    if (!file || !file.type.startsWith('image/')) {
+      logToTerminal("FILE ERROR: Invalid format. Please load an image.", "object");
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      imagePreview.src = e.target.result;
+      uploadDropzone.classList.add('hidden');
+      
+      imagePreview.onload = async () => {
+        await runImageDetection();
+      };
+    };
+    reader.readAsDataURL(file);
+  };
+  
+  browseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fileInput.click();
+  });
+  
+  fileInput.addEventListener('change', (e) => {
+    handleImageFile(e.target.files[0]);
+  });
+  
+  uploadDropzone.addEventListener('click', () => {
+    fileInput.click();
+  });
+  
+  uploadDropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadDropzone.style.borderColor = 'var(--accent-cyan)';
+  });
+  
+  uploadDropzone.addEventListener('dragleave', () => {
+    uploadDropzone.style.borderColor = 'rgba(0, 242, 254, 0.3)';
+  });
+  
+  uploadDropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadDropzone.style.borderColor = 'rgba(0, 242, 254, 0.3)';
+    handleImageFile(e.dataTransfer.files[0]);
+  });
+
+  const registerBtn = document.getElementById('register-face-btn');
+  registerBtn.addEventListener('click', () => {
+    enrollCurrentFace();
+  });
+  
+  const registerInput = document.getElementById('register-face-name');
+  registerInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      enrollCurrentFace();
+    }
+  });
+  
+  const reRunImageFilters = () => {
+    if (!isWebcamMode) runImageDetection();
+  };
+  
+  cameraSelect.addEventListener('change', () => {
+    if (isWebcamMode) startWebcam();
+  });
+  
   filterHuman.addEventListener('change', (e) => {
     settings.filters.human = e.target.checked;
     logToTerminal(`Neural Filter Human detection set to: ${settings.filters.human ? 'ENABLED' : 'DISABLED'}`, "muted");
+    reRunImageFilters();
   });
   
   filterAnimal.addEventListener('change', (e) => {
     settings.filters.animal = e.target.checked;
     logToTerminal(`Neural Filter Animal detection set to: ${settings.filters.animal ? 'ENABLED' : 'DISABLED'}`, "muted");
+    reRunImageFilters();
   });
   
   filterObject.addEventListener('change', (e) => {
     settings.filters.object = e.target.checked;
     logToTerminal(`Neural Filter Object detection set to: ${settings.filters.object ? 'ENABLED' : 'DISABLED'}`, "muted");
+    reRunImageFilters();
   });
   
-  // Confidence Slider
   confidenceThreshold.addEventListener('input', (e) => {
     const val = parseInt(e.target.value);
     confidenceVal.textContent = `${val}%`;
@@ -825,9 +1204,9 @@ function bindControlInputs() {
   });
   confidenceThreshold.addEventListener('change', (e) => {
     logToTerminal(`Neural scanning threshold calibrated to: ${e.target.value}%`, "cyan");
+    reRunImageFilters();
   });
   
-  // Voice Toggle
   toggleVoice.addEventListener('change', (e) => {
     settings.voiceEnabled = e.target.checked;
     voiceSettingsContainer.style.opacity = settings.voiceEnabled ? '1' : '0.4';
@@ -835,65 +1214,54 @@ function bindControlInputs() {
     logToTerminal(`TTS Voice announcer system set to: ${settings.voiceEnabled ? 'ENABLED' : 'DISABLED'}`, "muted");
   });
   
-  // Voice select dropdown
   voiceSelect.addEventListener('change', (e) => {
     settings.selectedVoiceName = e.target.value;
     logToTerminal(`TTS Voice profile changed to: ${settings.selectedVoiceName || 'Default System'}`, "muted");
     speakText("Voice profile updated.");
   });
   
-  // Voice speed rate
   voiceRate.addEventListener('input', (e) => {
     const val = parseInt(e.target.value) / 10;
     voiceRateVal.textContent = `${val.toFixed(1)}x`;
     settings.voiceRate = val;
   });
   
-  // Clear Logs Btn
   clearLogsBtn.addEventListener('click', () => {
     terminalLog.innerHTML = '';
     logToTerminal("Event terminal sequence cleared.", "cyan");
     playSynthBeep(700, 0.05, 'sine');
   });
   
-  // Snapshot Btn
   captureBtn.addEventListener('click', () => {
     captureSnapshot();
   });
   
-  // Retry camera permissions btn
   retryCameraBtn.addEventListener('click', () => {
     startWebcam();
   });
 }
 
-// --- App Initialization Entry Point ---
+// App Entry Point
 async function main() {
   logToTerminal("Kathirvel AI Vision core initial sequence started.", "cyan");
   
-  // Initialize user controls binding
   bindControlInputs();
-  
-  // Initialize voices dropdown
   initVoices();
   
-  // Load AI Models
-  await initializeAICore();
+  // Load registered profiles
+  loadEnrolledProfiles();
   
-  // Start webcam (this will request permissions and then populate camera devices)
+  await initializeAICore();
   await startWebcam();
   
-  // Kick off frame loop
   videoEl.addEventListener('play', () => {
     logToTerminal("Video renderer frame feed active. Initializing scan loop.", "cyan");
     requestAnimationFrame(detectionFrameLoop);
   });
   
-  // Fallback if event doesn't trigger but video is already playing
   if (!videoEl.paused) {
     requestAnimationFrame(detectionFrameLoop);
   }
 }
 
-// Run Main App on window load
 window.addEventListener('DOMContentLoaded', main);
